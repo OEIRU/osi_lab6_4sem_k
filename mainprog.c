@@ -1,14 +1,35 @@
 #include "mainprog.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <locale.h>
+#include <string.h>
 
-int **matrix = NULL; // Определение глобальной переменной
-int n = 0;           // Определение глобальной переменной
+// Глобальные переменные
+int **matrix = NULL;
+int n = 0;
 
 int **Create_matrix(int n)
 {
     int **matrix = (int **)malloc(n * sizeof(int *));
+    if (matrix == NULL)
+    {
+        printf("Ошибка выделения памяти для строк матрицы.\n");
+        exit(1);
+    }
     for (int i = 0; i < n; i++)
     {
         matrix[i] = (int *)malloc(n * sizeof(int));
+        if (matrix[i] == NULL)
+        {
+            printf("Ошибка выделения памяти для столбцов матрицы.\n");
+            // Освобождаем уже выделенную память перед выходом
+            for (int k = 0; k < i; k++)
+            {
+                free(matrix[k]);
+            }
+            free(matrix);
+            exit(1);
+        }
     }
     return matrix;
 }
@@ -21,59 +42,52 @@ void Keybord_input_matrix(int **matrix, int n)
         for (int j = 0; j < n; j++)
         {
             printf("Элемент [%d][%d]: ", i + 1, j + 1);
-            scanf("%d", &matrix[i][j]);
+            if (scanf("%d", &matrix[i][j]) != 1)
+            {
+                printf("Некорректный ввод. Завершение программы.\n");
+                Free_matrix(matrix, n);
+                exit(1);
+            }
         }
     }
 }
 
-int **Read_matrix_from_file(const char *filename, int *n)
+void Read_matrix_from_file(const char *fileName, int ***matrix_ptr, int *n)
 {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL)
+    FILE *inputFile = fopen(fileName, "r");
+    if (inputFile == NULL)
     {
-        perror("Ошибка открытия файла");
-        return NULL;
+        printf("Ошибка открытия файла %s.\n", fileName);
+        exit(1);
     }
-    // Подсчитываем количество строк и элементов
-    int count = 0;
-    int elements_per_row = 0;
-    char line[256];
-    // Подсчитываем строки и количество элементов в первой строке
-    while (fgets(line, sizeof(line), file))
+
+    if (fscanf(inputFile, "%d", n) != 1)
     {
-        count++; // Подсчет строк
-        if (count == 1)
-        {
-            char *ptr = strtok(line, " ");
-            while (ptr != NULL)
-            {
-                elements_per_row++;
-                ptr = strtok(NULL, " ");
-            }
-        }
+        printf("Ошибка чтения размера матрицы из файла.\n");
+        fclose(inputFile);
+        exit(1);
     }
-    // Возвращаем указатель в начало файла
-    rewind(file);
-    // Создаем матрицу
-    int **matrix = Create_matrix(elements_per_row);
+
+    *matrix_ptr = Create_matrix(*n); // Создаём матрицу
+
     // Считываем элементы матрицы
-    for (int i = 0; i < count; i++)
+    for (int i = 0; i < *n; i++)
     {
-        for (int j = 0; j < elements_per_row; j++)
+        for (int j = 0; j < *n; j++) // Изменено с j = i на j = 0
         {
-            if (fscanf(file, "%d", &matrix[i][j]) != 1)
+            if (fscanf(inputFile, "%d", &((*matrix_ptr)[i][j])) != 1)
             {
-                printf("Ошибка чтения элемента [%d][%d] из файла\n", i + 1, j + 1);
-                Free_matrix(matrix, elements_per_row);
-                fclose(file);
-                return NULL;
+                printf("Ошибка чтения элемента [%d][%d] из файла.\n", i + 1, j + 1);
+                Free_matrix(*matrix_ptr, *n);
+                fclose(inputFile);
+                exit(1);
             }
         }
     }
-    *n = elements_per_row; // Устанавливаем размерность матрицы
-    fclose(file);
-    return matrix;
+
+    fclose(inputFile);
 }
+
 void Print_matrix(int **matrix, int n)
 {
     printf("Введенная матрица:\n");
@@ -89,6 +103,8 @@ void Print_matrix(int **matrix, int n)
 
 void Free_matrix(int **matrix, int n)
 {
+    if (matrix == NULL)
+        return;
     for (int i = 0; i < n; i++)
     {
         free(matrix[i]);
@@ -96,9 +112,10 @@ void Free_matrix(int **matrix, int n)
     free(matrix);
 }
 
-// Определение глобальных переменных
+
 int main()
 {
+    setlocale(LC_ALL, ""); // Для корректного отображения кириллицы
     printf("Справка о том, какая это крутая программа\n");
     printf("Что она делает?\n");
     printf("Крутые вещи с матрицей! Такие как\n");
@@ -107,32 +124,33 @@ int main()
     printf("___________________\n");
     printf("Подготовила лягушка\n\n");
     printf("Источник данных (1 - клавиатура 2 - файл): \n");
+    
     int input;
-    int n;
     scanf("%d", &input);
     switch (input)
     {
     case 1:
-
         printf("Введите размер матрицы (n): ");
-        scanf("%d", &n);
+        if (scanf("%d", &n) != 1 || n <= 0)
+        {
+            printf("Некорректный ввод размера матрицы.\n");
+            exit(1);
+        }
         matrix = Create_matrix(n);
         Keybord_input_matrix(matrix, n);
         Print_matrix(matrix, n); // Печать матрицы после ввода
         printf("\n");
         break;
     case 2:
-        char filename[256];
-        printf("Введите имя файла: ");
-        scanf("%s", filename);
-        matrix = Read_matrix_from_file(filename, &n);
-        if (matrix != NULL)
-            Print_matrix(matrix, n);
+        Read_matrix_from_file("test.txt", &matrix, &n);
+        Print_matrix(matrix, n); // Печать матрицы после чтения
+        printf("\n");
         break;
     default:
-
-        break;
+        printf("Некорректный выбор источника данных.\n");
+        exit(1);
     }
+
     while (1)
     {
         printf("\n");
@@ -142,7 +160,14 @@ int main()
         printf("4) Выход\n");
         printf("\nВведи цифру и не беси меня: ");
 
-        scanf("%d", &input);
+        if (scanf("%d", &input) != 1)
+        {
+            printf("Некорректный ввод.\n");
+            // Очистка буфера ввода
+            while (getchar() != '\n');
+            continue;
+        }
+
         switch (input)
         {
         case 1:
@@ -157,14 +182,13 @@ int main()
             system("gcc -o prog2 prog2.c");
             system("./prog1");
             system("./prog2");
-
             break;
         case 4:
             Free_matrix(matrix, n); // Освобождаем память перед выходом
             return 0;
             break;
         default:
-
+            printf("Некорректный выбор.\n");
             break;
         }
     }
