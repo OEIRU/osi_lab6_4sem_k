@@ -61,19 +61,35 @@ void Read_matrix_from_file(const char *fileName, int ***matrix_ptr, int *n)
         exit(1);
     }
 
-    if (fscanf(inputFile, "%d", n) != 1)
-    {
-        printf("Ошибка чтения размера матрицы из файла.\n");
-        fclose(inputFile);
-        exit(1);
+    // Предварительно считаем количество элементов в первой строке, чтобы определить размер матрицы
+    int temp;
+    int count = 0;
+    char line[1024];
+
+    // Читаем первую строку файла
+    if (fgets(line, sizeof(line), inputFile) != NULL) {
+        char *ptr = line;
+        // Подсчёт количества чисел в строке
+        while (sscanf(ptr, "%d", &temp) == 1) {
+            count++;
+            // Сдвигаем указатель ptr на следующее число в строке
+            while (*ptr != ' ' && *ptr != '\0') ptr++;
+            while (*ptr == ' ') ptr++;
+        }
     }
+
+    // Размер матрицы
+    *n = count;
+
+    // Перемещаем указатель файла в начало для полноценного чтения
+    rewind(inputFile);
 
     *matrix_ptr = Create_matrix(*n); // Создаём матрицу
 
     // Считываем элементы матрицы
     for (int i = 0; i < *n; i++)
     {
-        for (int j = 0; j < *n; j++) // Изменено с j = i на j = 0
+        for (int j = 0; j < *n; j++)
         {
             if (fscanf(inputFile, "%d", &((*matrix_ptr)[i][j])) != 1)
             {
@@ -87,6 +103,7 @@ void Read_matrix_from_file(const char *fileName, int ***matrix_ptr, int *n)
 
     fclose(inputFile);
 }
+
 
 void Print_matrix(int **matrix, int n)
 {
@@ -112,7 +129,6 @@ void Free_matrix(int **matrix, int n)
     free(matrix);
 }
 
-
 int main()
 {
     setlocale(LC_ALL, ""); // Для корректного отображения кириллицы
@@ -124,7 +140,7 @@ int main()
     printf("___________________\n");
     printf("Подготовила лягушка\n\n");
     printf("Источник данных (1 - клавиатура 2 - файл): \n");
-    
+
     int input;
     scanf("%d", &input);
     switch (input)
@@ -148,7 +164,7 @@ int main()
         break;
     default:
         printf("Некорректный выбор источника данных.\n");
-        exit(1);
+        break;
     }
 
     while (1)
@@ -164,7 +180,8 @@ int main()
         {
             printf("Некорректный ввод.\n");
             // Очистка буфера ввода
-            while (getchar() != '\n');
+            while (getchar() != '\n')
+                ;
             continue;
         }
 
@@ -174,14 +191,11 @@ int main()
             prog1();
             break;
         case 2:
-            system("gcc -o prog2 prog2.c");
-            system("./prog2");
+            prog2();
             break;
         case 3:
-            system("gcc -o prog1 prog1.c");
-            system("gcc -o prog2 prog2.c");
-            system("./prog1");
-            system("./prog2");
+            prog1();
+            prog2();
             break;
         case 4:
             Free_matrix(matrix, n); // Освобождаем память перед выходом
